@@ -1,0 +1,812 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta http-equiv="Content-Security-Policy"
+  content="default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'none';">
+<title>Dashboard</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 100%; height: 100%; overflow: hidden; background: #f6f5f4; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+  body { display: flex; flex-direction: column; }
+
+  /* #titlebar removed — recovered vertical space */
+
+  #content { flex: 1; min-height: 0; position: relative; overflow: hidden; }
+
+  #grid-page {
+    position: absolute; inset: 0; display: flex; flex-direction: column;
+    overflow: hidden; z-index: 10; background: #f6f5f4;
+  }
+  #grid-page.hide { z-index: 1; pointer-events: none; }
+
+  #grid-toolbar {
+    flex-shrink: 0; display: flex; align-items: center; gap: 8px;
+    padding: 10px 16px; border-bottom: 0.5px solid rgba(0,0,0,0.1); background: #fff;
+    -webkit-app-region: no-drag; flex-wrap: wrap;
+  }
+  #url-input {
+    flex: 1; min-width: 160px; font-family: inherit; font-size: 13px; height: 34px; padding: 0 12px;
+    border: 0.5px solid rgba(0,0,0,0.1); border-radius: 8px; background: #f6f5f4; color: #1a1a1a;
+    outline: none; -webkit-user-select: text; user-select: text;
+  }
+  #url-input:focus { border-color: rgba(0,0,0,0.25); background: #fff; }
+  #url-input::placeholder { color: #aaa; }
+  .tgroup { display: flex; align-items: center; gap: 6px; padding-left: 10px; border-left: 0.5px solid rgba(0,0,0,0.1); flex-shrink: 0; }
+  .tgroup label { font-size: 11px; color: #aaa; white-space: nowrap; }
+  .tgroup select { font-family: inherit; font-size: 12px; height: 28px; padding: 0 6px; border: 0.5px solid rgba(0,0,0,0.1); border-radius: 8px; background: #f6f5f4; color: #1a1a1a; cursor: pointer; outline: none; }
+  .tgroup input[type=range] { width: 80px; cursor: pointer; }
+  button { font-family: inherit; font-size: 13px; height: 34px; padding: 0 14px; border: 0.5px solid rgba(0,0,0,0.1); border-radius: 8px; background: #fff; color: #1a1a1a; cursor: pointer; white-space: nowrap; }
+  button:hover { background: #f0ede9; }
+  button:disabled { opacity: 0.35; cursor: default; }
+  button:disabled:hover { background: #fff; }
+
+  #grid-scroll { flex: 1; min-height: 0; overflow-y: auto; padding: 16px; }
+  .grid { display: grid; gap: 14px; align-items: start; }
+
+  .card {
+    background: #fff; border: 0.5px solid rgba(0,0,0,0.1); border-radius: 12px;
+    overflow: hidden; display: flex; flex-direction: column; cursor: pointer;
+    transition: border-color 0.15s, box-shadow 0.15s; break-inside: avoid;
+  }
+  .card:hover { border-color: rgba(0,0,0,0.25); }
+  .card.dragging { opacity: 0.4; }
+  .card.drag-over { border-color: #555; box-shadow: 0 0 0 2px rgba(0,0,0,0.15); }
+
+  .drag-handle {
+    position: absolute; top: 6px; left: 50%; transform: translateX(-50%);
+    width: 32px; height: 18px; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 3px;
+    opacity: 0; transition: opacity 0.15s; cursor: grab; pointer-events: auto; z-index: 10;
+  }
+  .drag-handle:active { cursor: grabbing; }
+  .drag-handle span { display: block; width: 20px; height: 1.5px; background: rgba(255,255,255,0.85); border-radius: 2px; }
+  .card:hover .drag-handle { opacity: 1; }
+
+  .card-thumb { background: #eee; position: relative; overflow: hidden; width: 100%; }
+  .card-thumb.empty { min-height: 120px; display: flex; align-items: center; justify-content: center; }
+  .card-thumb img { display: block; width: 100%; height: auto; }
+
+  .thumb-overlay {
+    position: absolute; bottom: 6px; left: 6px; right: 6px;
+    display: flex; justify-content: space-between; align-items: center;
+    opacity: 0; transition: opacity 0.15s; pointer-events: none;
+  }
+  .card:hover .thumb-overlay { opacity: 1; pointer-events: auto; }
+  .age-badge { font-size: 10px; padding: 2px 6px; border-radius: 100px; background: rgba(0,0,0,0.5); color: rgba(255,255,255,0.9); white-space: nowrap; }
+  .tbtn-group { display: flex; gap: 4px; }
+  .tbtn { height: 22px; padding: 0 7px; font-size: 11px; background: #fff; border: 0.5px solid rgba(0,0,0,0.1); border-radius: 8px; cursor: pointer; color: #666; white-space: nowrap; }
+  .tbtn.on { background: #1a1a1a; color: #fff; border-color: #1a1a1a; }
+  .loading-thumb { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; color: #aaa; font-size: 12px; min-height: 120px; width: 100%; }
+  .spinner { width: 20px; height: 20px; border: 2px solid rgba(0,0,0,0.1); border-top-color: #aaa; border-radius: 50%; animation: spin 0.8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .card-body { padding: 8px 12px 4px; display: flex; flex-direction: column; gap: 3px; }
+  .card-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .card-host { font-size: 13px; font-weight: 500; color: #1a1a1a; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+  .card-del { background: none; border: none; height: auto; padding: 2px 6px; font-size: 12px; color: #aaa; cursor: pointer; }
+  .card-note { font-size: 12px; color: #666; line-height: 1.4; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+  .card-note.empty { color: #aaa; font-style: italic; }
+  .card-footer { font-size: 11px; color: #aaa; padding: 2px 12px 8px; }
+  .empty-msg { display: flex; align-items: center; justify-content: center; height: 200px; color: #aaa; font-size: 14px; }
+
+  /* Detail overlay — sits on top of the WebContentsView via z-index on toolbar only */
+  #detail-overlay {
+    position: absolute; inset: 0; z-index: 20;
+    display: none; flex-direction: column; pointer-events: none;
+  }
+  #detail-overlay.show { display: flex; }
+
+  #detail-toolbar {
+    flex-shrink: 0; display: flex; align-items: center; gap: 8px;
+    padding: 8px 12px; border-bottom: 0.5px solid rgba(0,0,0,0.1); background: #fff;
+    flex-wrap: wrap; pointer-events: auto;
+    /* height must match TOOLBAR_H constant in main.js (49px) */
+  }
+  #detail-url { flex: 1; font-size: 12px; color: #666; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+  .seg { display: flex; border: 0.5px solid rgba(0,0,0,0.1); border-radius: 8px; overflow: hidden; flex-shrink: 0; }
+  .seg button { height: 30px; padding: 0 10px; font-size: 11px; background: #f6f5f4; color: #666; border: none; border-radius: 0; }
+  .seg button + button { border-left: 0.5px solid rgba(0,0,0,0.1); }
+  .seg button.on { background: #1a1a1a; color: #fff; }
+  #detail-main { flex: 1; min-height: 0; pointer-events: none; }
+  #note-inline {
+    flex: 1; min-width: 0; font-family: inherit; font-size: 12px; height: 30px; padding: 0 10px;
+    border: 0.5px solid rgba(0,0,0,0.1); border-radius: 8px;
+    background: #f6f5f4; color: #1a1a1a; outline: none;
+    -webkit-user-select: text; user-select: text; transition: border-color 0.15s;
+  }
+  #note-inline:focus { border-color: rgba(0,0,0,0.25); background: #fff; }
+  #note-inline::placeholder { color: #aaa; font-style: italic; }
+
+  #ss-overlay {
+    position: absolute; inset: 0; z-index: 21;
+    display: none; flex-direction: column; pointer-events: none;
+  }
+  #ss-overlay.show { display: flex; }
+  #ss-bar {
+    flex-shrink: 0; display: flex; align-items: center; gap: 10px;
+    padding: 8px 16px; background: #fff; border-bottom: 0.5px solid rgba(0,0,0,0.1);
+    -webkit-app-region: no-drag; pointer-events: auto;
+  }
+  #ss-bar button { background: #f6f5f4; border-color: rgba(0,0,0,0.1); color: #1a1a1a; }
+  #ss-bar button:hover { background: #eeece9; }
+  #ss-title { flex: 1; font-size: 13px; color: #666; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #ss-counter { font-size: 12px; color: #aaa; white-space: nowrap; }
+  #ss-progress-wrap { flex: 1; height: 3px; background: rgba(0,0,0,0.08); border-radius: 2px; overflow: hidden; }
+  #ss-progress { height: 100%; background: #1a1a1a; width: 0%; border-radius: 2px; }
+  .ss-dur-wrap { display: flex; align-items: center; gap: 5px; }
+  .ss-dur-wrap label { font-size: 11px; color: #aaa; white-space: nowrap; }
+  .ss-dur-wrap select { font-family: inherit; font-size: 11px; height: 28px; padding: 0 5px; border: 0.5px solid rgba(0,0,0,0.1); border-radius: 8px; background: #f6f5f4; color: #1a1a1a; cursor: pointer; outline: none; }
+  #ss-spacer { flex: 1; pointer-events: none; }
+  #ss-nav-prev, #ss-nav-next {
+    position: absolute; top: 50%; transform: translateY(-50%);
+    width: 44px; height: 44px; border-radius: 50%;
+    background: rgba(255,255,255,0.9); border: 0.5px solid rgba(0,0,0,0.12);
+    color: #1a1a1a; font-size: 18px; display: none; align-items: center; justify-content: center;
+    cursor: pointer; z-index: 22; box-shadow: 0 2px 8px rgba(0,0,0,0.1); pointer-events: auto;
+  }
+  #ss-overlay.show #ss-nav-prev,
+  #ss-overlay.show #ss-nav-next { display: flex; }
+  #ss-nav-prev:hover, #ss-nav-next:hover { background: #fff; }
+  #ss-nav-prev { left: 12px; }
+  #ss-nav-next { right: 12px; }
+</style>
+</head>
+<body>
+<!-- #titlebar removed -->
+<div id="content">
+
+  <div id="grid-page">
+    <div id="grid-toolbar">
+      <input type="url" id="url-input" placeholder="Paste a URL or file path and press Enter…" />
+      <button id="btn-add">Add ↗</button>
+      <div class="tgroup">
+        <label>Columns</label>
+        <input type="range" id="size-slider" min="1" max="6" step="1" value="2" />
+      </div>
+      <div class="tgroup">
+        <label>Refresh every</label>
+        <select id="refresh-sel">
+          <option value="0">Off</option>
+          <option value="10">10 s</option>
+          <option value="30">30 s</option>
+          <option value="60" selected>1 min</option>
+          <option value="300">5 min</option>
+          <option value="600">10 min</option>
+        </select>
+      </div>
+      <div class="tgroup">
+        <button id="btn-refresh-all" style="height:28px;font-size:12px;padding:0 10px;">↺ All</button>
+      </div>
+      <div class="tgroup">
+        <label>Slideshow</label>
+        <select id="ss-dur-grid">
+          <option value="5000">5 s</option>
+          <option value="10000" selected>10 s</option>
+          <option value="15000">15 s</option>
+          <option value="20000">20 s</option>
+          <option value="30000">30 s</option>
+          <option value="60000">1 min</option>
+        </select>
+        <button id="btn-ss-start" style="height:28px;font-size:12px;padding:0 10px;">▶ Start</button>
+      </div>
+    </div>
+    <div id="grid-scroll">
+      <div class="grid" id="grid" style="display:none"></div>
+      <div class="empty-msg" id="empty">Add a URL or local file path and press Enter.</div>
+    </div>
+  </div>
+
+  <div id="detail-overlay">
+    <div id="detail-toolbar">
+      <button id="btn-back">← Back</button>
+      <div class="seg">
+        <button id="btn-nav-back" title="Go back">‹</button>
+        <button id="btn-nav-forward" title="Go forward">›</button>
+      </div>
+      <span id="detail-url"></span>
+      <div class="seg">
+        <button id="btn-live">Live</button>
+        <button id="btn-reload-mode">Reload (F5)</button>
+      </div>
+      <button id="btn-refresh-detail" style="height:30px;font-size:12px;padding:0 10px;" title="Refresh this page">↺</button>
+      <div class="tgroup">
+        <label>Note</label>
+        <input type="text" id="note-inline" placeholder="Add a note…" />
+      </div>
+    </div>
+    <div id="detail-main"></div>
+  </div>
+
+  <div id="ss-overlay">
+    <div id="ss-bar">
+      <button id="btn-ss-exit"  style="height:28px;font-size:12px;padding:0 10px;">✕ Exit</button>
+      <button id="ss-playpause" style="height:28px;font-size:12px;padding:0 10px;">⏸ Pause</button>
+      <button id="btn-ss-prev"  style="height:28px;font-size:12px;padding:0 10px;">‹ Prev</button>
+      <button id="btn-ss-next"  style="height:28px;font-size:12px;padding:0 10px;">Next ›</button>
+      <div id="ss-progress-wrap"><div id="ss-progress"></div></div>
+      <span id="ss-counter">1 / 1</span>
+      <span id="ss-title"></span>
+      <div class="ss-dur-wrap">
+        <label>Per page</label>
+        <select id="ss-dur-sel">
+          <option value="5000">5 s</option>
+          <option value="10000" selected>10 s</option>
+          <option value="15000">15 s</option>
+          <option value="20000">20 s</option>
+          <option value="30000">30 s</option>
+          <option value="60000">1 min</option>
+        </select>
+      </div>
+    </div>
+    <div id="ss-spacer"></div>
+    <div id="ss-nav-prev">‹</div>
+    <div id="ss-nav-next">›</div>
+  </div>
+
+</div>
+
+<script>
+  // ── State ──────────────────────────────────────────────────────────────────
+  let cards    = []
+  let shots    = {}
+  let prefs    = { cols: 2, refresh: 60, ssDur: 10000 }
+  let activeId = null
+  let activeViewMode = 'detail'   // 'detail' | 'fullscreen'
+  let refreshTimer   = null
+  let capturing      = new Set()
+  let numCols        = 2
+  let scrollTracker  = null
+
+  let ssActive      = false
+  let ssIdx         = 0
+  let ssDur         = 10000
+  let ssPaused      = false
+  let ssTimer       = null
+  let ssProgressRaf = null
+
+  // cardId -> bool: has view been created this session
+  const viewCreated = new Set()
+  // cardId -> bool: is view ready (page loaded)
+  const viewReady   = {}
+
+  // ── Storage ────────────────────────────────────────────────────────────────
+
+  async function saveData(name, val) {
+    await window.electronAPI.storeWrite(name + '.json', JSON.stringify(val)).catch(() => {})
+  }
+
+  async function loadData(name, def) {
+    const json = await window.electronAPI.storeRead(name + '.json').catch(() => null)
+    if (json) { try { return JSON.parse(json) } catch(e) {} }
+    return def
+  }
+
+  function saveCards() { saveData('cards', cards) }
+
+  function saveShots() {
+    const keep = {}
+    cards.forEach(c => { if (shots[c.id]) keep[c.id] = shots[c.id] })
+    shots = keep
+    cards.forEach(c => {
+      if (shots[c.id]) {
+        window.electronAPI.storeWrite('shot_' + c.id + '.json', JSON.stringify(shots[c.id])).catch(() => {})
+      } else {
+        window.electronAPI.storeDelete('shot_' + c.id + '.json').catch(() => {})
+      }
+    })
+  }
+
+  async function loadShots() {
+    const result = {}
+    try {
+      const files = await window.electronAPI.storeList('shot_')
+      await Promise.all(files.map(async f => {
+        const id = parseInt(f.replace('shot_', '').replace('.json', ''))
+        const json = await window.electronAPI.storeRead(f).catch(() => null)
+        if (json) { try { result[id] = JSON.parse(json) } catch(e) {} }
+      }))
+    } catch(e) {}
+    return result
+  }
+
+  function savePrefs() { prefs.cols = numCols; prefs.ssDur = ssDur; saveData('prefs', prefs) }
+  function saveNote() {
+    const c = cards.find(c => c.id === activeId)
+    if (c) { c.note = document.getElementById('note-inline').value; saveCards() }
+  }
+
+  // ── View management ────────────────────────────────────────────────────────
+  // WebContentsViews live in main process; renderer talks via IPC.
+  // Each card gets persist:card-{id} partition → session state survives restarts.
+
+  async function ensureView(card) {
+    if (viewCreated.has(card.id)) return
+    viewCreated.add(card.id)
+    viewReady[card.id] = false
+    await window.electronAPI.viewEnsure(card.id, card.url)
+    // Poll until ready, then mark
+    const poll = () => {
+      window.electronAPI.viewIsReady(card.id).then(ready => {
+        if (ready) { viewReady[card.id] = true }
+        else { setTimeout(poll, 300) }
+      })
+    }
+    setTimeout(poll, 300)
+  }
+
+  async function destroyView(cardId) {
+    viewCreated.delete(cardId)
+    delete viewReady[cardId]
+    await window.electronAPI.viewDestroy(cardId)
+  }
+
+  async function showViewDetail(cardId) {
+    activeViewMode = 'detail'
+    await window.electronAPI.viewShowDetail(cardId)
+  }
+
+  async function showViewFullscreen(cardId) {
+    activeViewMode = 'fullscreen'
+    await window.electronAPI.viewShowFullscreen(cardId)
+  }
+
+  async function hideAllViews() {
+    await window.electronAPI.viewHideAll()
+  }
+
+  // ── Mode ───────────────────────────────────────────────────────────────────
+
+  function getMode(id) {
+    const c = cards.find(c => c.id === id); return (c && c.mode) || 'live'
+  }
+
+  function setMode(mode) {
+    const c = cards.find(c => c.id === activeId); if (!c) return
+    c.mode = mode; saveCards()
+    document.getElementById('btn-live').classList.toggle('on', mode === 'live')
+    document.getElementById('btn-reload-mode').classList.toggle('on', mode === 'reload')
+  }
+
+  // ── Refresh detail view ────────────────────────────────────────────────────
+
+  async function refreshDetail() {
+    if (activeId === null) return
+    const c = cards.find(c => c.id === activeId); if (!c) return
+    viewReady[activeId] = false
+    await window.electronAPI.viewReload(activeId)
+    if (getMode(activeId) === 'reload') {
+      waitAndCapture(c)
+    }
+  }
+
+  // ── Scroll tracking ────────────────────────────────────────────────────────
+
+  function startScrollTracking(cardId) {
+    stopScrollTracking()
+    scrollTracker = setInterval(async () => {
+      const pos = await window.electronAPI.viewGetScroll(cardId).catch(() => null)
+      if (pos) {
+        const c = cards.find(c => c.id === cardId)
+        if (c) { c.scrollX = pos.x; c.scrollY = pos.y }
+      }
+    }, 1000)
+  }
+
+  function stopScrollTracking() {
+    if (scrollTracker) { clearInterval(scrollTracker); scrollTracker = null }
+  }
+
+  // ── Capture ────────────────────────────────────────────────────────────────
+
+  async function captureCard(card) {
+    if (capturing.has(card.id)) return
+    capturing.add(card.id); setSpinner(card.id, true)
+    try {
+      const scrollEl = document.getElementById('grid-scroll')
+      const colW = Math.floor((scrollEl.offsetWidth - 32 - (numCols - 1) * 14) / numCols)
+      const dpr = window.devicePixelRatio || 1
+      const url = await window.electronAPI.viewCapture(card.id, colW, dpr)
+      if (url) { shots[card.id] = { url, ts: Date.now() }; saveShots() }
+    } catch(e) {}
+    capturing.delete(card.id); setSpinner(card.id, false); updateThumb(card.id)
+  }
+
+  function waitAndCapture(card) {
+    // Poll until page ready then capture — no settle needed, view always fully rendered
+    const poll = () => {
+      window.electronAPI.viewIsReady(card.id).then(ready => {
+        if (ready) { viewReady[card.id] = true; captureCard(card) }
+        else { setTimeout(poll, 500) }
+      })
+    }
+    setTimeout(poll, 500)
+  }
+
+  function setSpinner(id, on) {
+    const t = document.querySelector(`[data-id="${id}"] .card-thumb`); if (!t) return
+    const sp = t.querySelector('.loading-thumb')
+    const img = t.querySelector('img')
+    if (sp) sp.style.display = on ? 'flex' : 'none'
+    if (img) img.style.opacity = on ? '0.4' : '1'
+  }
+
+  function updateThumb(id) {
+    const cardEl = document.querySelector(`[data-id="${id}"]`); if (!cardEl) return
+    const s = shots[id]; if (!s) return
+    const thumb = cardEl.querySelector('.card-thumb')
+    thumb.classList.remove('empty')
+    thumb.innerHTML = ''
+    appendDragHandle(thumb)
+    appendThumbImg(thumb, id, s, getMode(id))
+  }
+
+  // ── DOM card builders ──────────────────────────────────────────────────────
+
+  function appendDragHandle(thumb) {
+    const handle = document.createElement('div')
+    handle.className = 'drag-handle'
+    handle.addEventListener('click', e => e.stopPropagation())
+    for (let i = 0; i < 3; i++) handle.appendChild(document.createElement('span'))
+    thumb.appendChild(handle)
+  }
+
+  function appendThumbImg(thumb, id, s, mode) {
+    const img = document.createElement('img')
+    img.src = s.url
+    thumb.appendChild(img)
+    appendThumbOverlay(thumb, id, mode, s.ts)
+  }
+
+  function appendThumbOverlay(thumb, id, mode, ts) {
+    const ov = document.createElement('div'); ov.className = 'thumb-overlay'
+    const badge = document.createElement('span'); badge.className = 'age-badge'
+    badge.textContent = ts ? age(ts) : ''
+    const grp = document.createElement('div'); grp.className = 'tbtn-group'
+    const modeBtn = document.createElement('button')
+    modeBtn.className = 'tbtn' + (mode === 'reload' ? ' on' : '')
+    modeBtn.textContent = mode === 'reload' ? 'F5' : 'Live'
+    modeBtn.addEventListener('click', e => { e.stopPropagation(); toggleMode(id) })
+    const refBtn = document.createElement('button'); refBtn.className = 'tbtn'; refBtn.textContent = '↺'
+    refBtn.addEventListener('click', e => { e.stopPropagation(); captureCard(cards.find(c => c.id === id)) })
+    grp.append(modeBtn, refBtn); ov.append(badge, grp); thumb.appendChild(ov)
+  }
+
+  function buildCard(c) {
+    const s = shots[c.id], loading = capturing.has(c.id), mode = getMode(c.id)
+    const card = document.createElement('div')
+    card.className = 'card'; card.dataset.id = c.id; card.draggable = true
+    card.addEventListener('dragstart', e => onDragStart(e, c.id))
+    card.addEventListener('dragover',  e => onDragOver(e, c.id))
+    card.addEventListener('drop',      e => onDrop(e, c.id))
+    card.addEventListener('dragend',   onDragEnd)
+    card.addEventListener('click',     () => openDetail(c.id))
+
+    const thumb = document.createElement('div')
+    thumb.className = 'card-thumb' + (s && !loading ? '' : ' empty')
+    appendDragHandle(thumb)
+    if (s && !loading) {
+      appendThumbImg(thumb, c.id, s, mode)
+    } else {
+      const lt = document.createElement('div'); lt.className = 'loading-thumb'
+      const spin = document.createElement('div'); spin.className = 'spinner'
+      const txt = document.createElement('span'); txt.textContent = loading ? 'Capturing…' : 'Loading…'
+      lt.append(spin, txt); thumb.appendChild(lt)
+      appendThumbOverlay(thumb, c.id, mode, null)
+    }
+
+    const body = document.createElement('div'); body.className = 'card-body'
+    const row = document.createElement('div'); row.className = 'card-row'
+    const hostSpan = document.createElement('span'); hostSpan.className = 'card-host'
+    hostSpan.textContent = host(c.url)
+    const del = document.createElement('button'); del.className = 'card-del'; del.textContent = '✕'
+    del.addEventListener('click', e => { e.stopPropagation(); removeCard(c.id, e) })
+    row.append(hostSpan, del)
+    const note = document.createElement('div')
+    note.className = 'card-note' + (c.note ? '' : ' empty')
+    note.textContent = c.note || 'No notes yet…'
+    body.append(row, note)
+    const footer = document.createElement('div'); footer.className = 'card-footer'
+    footer.textContent = 'Added ' + c.added
+    card.append(thumb, body, footer)
+    return card
+  }
+
+  function toggleMode(id) {
+    const c = cards.find(c => c.id === id); if (!c) return
+    c.mode = c.mode === 'reload' ? 'live' : 'reload'; saveCards(); updateThumb(id)
+  }
+
+  function refreshAll() {
+    cards.forEach(c => {
+      if (getMode(c.id) === 'reload') {
+        viewReady[c.id] = false
+        window.electronAPI.viewReload(c.id)
+        waitAndCapture(c)
+      } else {
+        // live mode: view is already running, just capture current state
+        captureCard(c)
+      }
+    })
+  }
+
+  function setRefresh(sec) {
+    prefs.refresh = sec; savePrefs()
+    clearInterval(refreshTimer)
+    if (sec > 0) refreshTimer = setInterval(refreshAll, sec * 1000)
+  }
+
+  setInterval(() => {
+    document.querySelectorAll('.age-badge').forEach(el => {
+      const card = el.closest('[data-id]'); if (!card) return
+      const s = shots[+card.dataset.id]
+      if (s) el.textContent = age(s.ts)
+    })
+  }, 10000)
+
+  function age(ts) {
+    const s = Math.floor((Date.now() - ts) / 1000)
+    if (s < 60) return s + 's ago'
+    if (s < 3600) return Math.floor(s/60) + 'm ago'
+    return Math.floor(s/3600) + 'h ago'
+  }
+
+  // ── Slideshow ──────────────────────────────────────────────────────────────
+
+  function startSlideshow() {
+    if (!cards.length) return
+    ssDur = parseInt(document.getElementById('ss-dur-grid').value)
+    document.getElementById('ss-dur-sel').value = ssDur
+    ssActive = true; ssIdx = 0; ssPaused = false
+    document.getElementById('grid-page').classList.add('hide')
+    document.getElementById('ss-overlay').classList.add('show')
+    document.getElementById('ss-playpause').textContent = '⏸ Pause'
+    ssShowCurrent(); ssScheduleNext()
+  }
+
+  function stopSlideshow() {
+    ssActive = false; ssPaused = false
+    clearTimeout(ssTimer); cancelAnimationFrame(ssProgressRaf)
+    hideAllViews()
+    document.getElementById('ss-overlay').classList.remove('show')
+    document.getElementById('grid-page').classList.remove('hide')
+  }
+
+  function toggleSlideshowPause() {
+    if (!ssActive) return
+    ssPaused = !ssPaused
+    document.getElementById('ss-playpause').textContent = ssPaused ? '▶ Play' : '⏸ Pause'
+    if (ssPaused) {
+      clearTimeout(ssTimer); cancelAnimationFrame(ssProgressRaf)
+    } else {
+      const pct = parseFloat(document.getElementById('ss-progress').style.width) || 0
+      const remaining = ssDur * (1 - pct / 100)
+      ssStartProgress(remaining)
+      ssTimer = setTimeout(() => ssStep(1), remaining)
+    }
+  }
+
+  function ssShowCurrent() {
+    const c = cards[ssIdx]; if (!c) return
+    window.electronAPI.viewShowSlideshow(c.id)
+    document.getElementById('ss-title').textContent = host(c.url)
+    document.getElementById('ss-counter').textContent = (ssIdx + 1) + ' / ' + cards.length
+  }
+
+  function ssStep(dir) {
+    if (!ssActive) return
+    clearTimeout(ssTimer); cancelAnimationFrame(ssProgressRaf)
+    ssIdx = ((ssIdx + dir) % cards.length + cards.length) % cards.length
+    ssPaused = false
+    document.getElementById('ss-playpause').textContent = '⏸ Pause'
+    ssShowCurrent(); ssScheduleNext()
+  }
+
+  function ssScheduleNext() {
+    if (ssPaused) return
+    ssStartProgress(ssDur)
+    ssTimer = setTimeout(() => ssStep(1), ssDur)
+  }
+
+  function ssStartProgress(duration) {
+    cancelAnimationFrame(ssProgressRaf)
+    const el = document.getElementById('ss-progress'); el.style.width = '0%'
+    const start = performance.now()
+    function tick(now) {
+      el.style.width = Math.min(100, ((now - start) / duration) * 100) + '%'
+      if (parseFloat(el.style.width) < 100) ssProgressRaf = requestAnimationFrame(tick)
+    }
+    ssProgressRaf = requestAnimationFrame(tick)
+  }
+
+  function setSsDuration(ms) {
+    ssDur = ms; savePrefs()
+    if (ssActive && !ssPaused) { clearTimeout(ssTimer); cancelAnimationFrame(ssProgressRaf); ssScheduleNext() }
+  }
+
+  // ── Drag reorder ───────────────────────────────────────────────────────────
+
+  let dragSrcId = null
+  function onDragStart(e, id) {
+    dragSrcId = id; e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', id)
+    setTimeout(() => { const el = document.querySelector(`[data-id="${id}"]`); if (el) el.classList.add('dragging') }, 0)
+  }
+  function onDragOver(e, id) {
+    e.preventDefault()
+    document.querySelectorAll('.card').forEach(c => c.classList.remove('drag-over'))
+    if (id !== dragSrcId) { const el = document.querySelector(`[data-id="${id}"]`); if (el) el.classList.add('drag-over') }
+  }
+  function onDrop(e, id) {
+    e.preventDefault()
+    document.querySelectorAll('.card').forEach(c => c.classList.remove('drag-over', 'dragging'))
+    if (!dragSrcId || dragSrcId === id) return
+    const from = cards.findIndex(c => c.id === dragSrcId)
+    const to   = cards.findIndex(c => c.id === id)
+    if (from < 0 || to < 0) return
+    const [moved] = cards.splice(from, 1); cards.splice(to, 0, moved)
+    saveCards(); render(); dragSrcId = null
+  }
+  function onDragEnd() {
+    document.querySelectorAll('.card').forEach(c => c.classList.remove('dragging', 'drag-over'))
+    dragSrcId = null
+  }
+
+  let navPollTimer = null
+
+  async function updateNavButtons() {
+    if (activeId === null) return
+    const state = await window.electronAPI.viewNavState(activeId)
+    document.getElementById('detail-url').textContent = state.url || ''
+    document.getElementById('btn-nav-back').disabled    = !state.canGoBack
+    document.getElementById('btn-nav-forward').disabled = !state.canGoForward
+  }
+
+  function startNavPolling() {
+    stopNavPolling()
+    updateNavButtons()
+    navPollTimer = setInterval(updateNavButtons, 1000)
+  }
+
+  function stopNavPolling() {
+    if (navPollTimer) { clearInterval(navPollTimer); navPollTimer = null }
+  }
+
+  async function openDetail(id) {
+    const c = cards.find(c => c.id === id); if (!c) return
+    activeId = id
+    document.getElementById('grid-page').classList.add('hide')
+    document.getElementById('detail-overlay').classList.add('show')
+    document.getElementById('detail-url').textContent = c.url
+    document.getElementById('btn-nav-back').disabled    = true
+    document.getElementById('btn-nav-forward').disabled = true
+    document.getElementById('note-inline').value = c.note || ''
+    const mode = getMode(id)
+    document.getElementById('btn-live').classList.toggle('on', mode === 'live')
+    document.getElementById('btn-reload-mode').classList.toggle('on', mode === 'reload')
+    await showViewDetail(id)
+    startNavPolling()
+    if (mode === 'reload') startScrollTracking(id)
+  }
+
+  async function backToGrid() {
+    stopScrollTracking()
+    stopNavPolling()
+    const c = cards.find(c => c.id === activeId)
+    if (c) {
+      // Save scroll position for reload-mode cards
+      if (getMode(c.id) === 'reload') {
+        const pos = await window.electronAPI.viewGetScroll(c.id).catch(() => null)
+        if (pos) { c.scrollX = pos.x; c.scrollY = pos.y; saveCards() }
+      }
+      captureCard(c)
+    }
+    await hideAllViews()
+    activeId = null
+    document.getElementById('detail-overlay').classList.remove('show')
+    document.getElementById('grid-page').classList.remove('hide')
+    render()
+  }
+
+  // ── Cards ──────────────────────────────────────────────────────────────────
+
+  function host(url) { try { return new URL(url).hostname.replace('www.','') || url } catch(e) { return url } }
+
+  function normalizeUrl(raw) {
+    raw = raw.trim(); if (!raw) return null
+    if (raw.startsWith('http://') || raw.startsWith('https://')) return raw
+    if (raw.startsWith('file://') || /^[a-zA-Z]:[\\\/]/.test(raw) || raw.startsWith('/')) {
+      if (!confirm('This URL points to a local file. It will be loaded on every app restart and can expose sensitive data. Continue?')) return null
+      if (raw.startsWith('file://')) return raw
+      if (/^[a-zA-Z]:[\\\/]/.test(raw)) return 'file:///' + raw.replace(/\\/g, '/')
+      return 'file://' + raw
+    }
+    return 'https://' + raw
+  }
+
+  function addCard() {
+    const inp = document.getElementById('url-input')
+    const url = normalizeUrl(inp.value); if (!url) return
+    const scheme = url.split(':')[0].toLowerCase()
+    if (!['http', 'https', 'file'].includes(scheme)) return
+    const card = { id: Date.now(), url, note: '', mode: 'live', added: new Date().toLocaleDateString() }
+    cards.unshift(card); inp.value = ''
+    saveCards(); ensureView(card); render(); captureCard(card)
+  }
+
+  function removeCard(id, e) {
+    e.stopPropagation()
+    if (activeId === id) backToGrid()
+    destroyView(id)
+    cards = cards.filter(c => c.id !== id)
+    delete shots[id]
+    saveCards(); saveShots(); render()
+  }
+
+  function applySize(v) {
+    numCols = v; prefs.cols = v; savePrefs()
+    document.getElementById('grid').style.gridTemplateColumns = `repeat(${v}, 1fr)`
+  }
+
+  function render() {
+    const grid = document.getElementById('grid'), empty = document.getElementById('empty')
+    empty.style.display = cards.length ? 'none' : 'flex'
+    grid.style.display = cards.length ? '' : 'none'
+    grid.style.gridTemplateColumns = `repeat(${numCols}, 1fr)`
+    grid.innerHTML = ''
+    cards.forEach(c => grid.appendChild(buildCard(c)))
+  }
+
+  // ── Event listeners ────────────────────────────────────────────────────────
+
+  document.getElementById('url-input').addEventListener('keydown', e => { if (e.key === 'Enter') addCard() })
+  document.getElementById('btn-add').addEventListener('click', addCard)
+  document.getElementById('size-slider').addEventListener('input', e => applySize(+e.target.value))
+  document.getElementById('refresh-sel').addEventListener('change', e => setRefresh(+e.target.value))
+  document.getElementById('btn-refresh-all').addEventListener('click', refreshAll)
+  document.getElementById('btn-ss-start').addEventListener('click', startSlideshow)
+  document.getElementById('btn-back').addEventListener('click', backToGrid)
+  document.getElementById('btn-nav-back').addEventListener('click', () => { window.electronAPI.viewGoBack(activeId) })
+  document.getElementById('btn-nav-forward').addEventListener('click', () => { window.electronAPI.viewGoForward(activeId) })
+  document.getElementById('btn-live').addEventListener('click', () => setMode('live'))
+  document.getElementById('btn-reload-mode').addEventListener('click', () => setMode('reload'))
+  document.getElementById('btn-refresh-detail').addEventListener('click', refreshDetail)
+  document.getElementById('note-inline').addEventListener('input', saveNote)
+  document.getElementById('btn-ss-exit').addEventListener('click', stopSlideshow)
+  document.getElementById('ss-playpause').addEventListener('click', toggleSlideshowPause)
+  document.getElementById('btn-ss-prev').addEventListener('click', () => ssStep(-1))
+  document.getElementById('btn-ss-next').addEventListener('click', () => ssStep(1))
+  document.getElementById('ss-dur-sel').addEventListener('change', e => setSsDuration(+e.target.value))
+  document.getElementById('ss-nav-prev').addEventListener('click', () => ssStep(-1))
+  document.getElementById('ss-nav-next').addEventListener('click', () => ssStep(1))
+
+  document.addEventListener('keydown', e => {
+    if (!ssActive) return
+    if (e.key === 'ArrowRight' || e.key === ' ') { e.preventDefault(); ssStep(1) }
+    if (e.key === 'ArrowLeft')  { e.preventDefault(); ssStep(-1) }
+    if (e.key === 'Escape')     stopSlideshow()
+    if (e.key === 'p' || e.key === 'P') toggleSlideshowPause()
+  })
+
+  // ── Init ───────────────────────────────────────────────────────────────────
+
+  async function init() {
+    cards  = await loadData('cards', [])
+    prefs  = await loadData('prefs', { cols: 2, refresh: 60, ssDur: 10000 })
+    shots  = await loadShots()
+    numCols  = prefs.cols   || 2
+
+    document.getElementById('size-slider').value = prefs.cols   || 2
+    document.getElementById('refresh-sel').value = prefs.refresh || 60
+    document.getElementById('ss-dur-grid').value = prefs.ssDur   || 10000
+    document.getElementById('ss-dur-sel').value  = prefs.ssDur   || 10000
+
+    setRefresh(prefs.refresh || 60)
+    // Create all views in background — sessions load from persist:card-{id}
+    await Promise.all(cards.map(c => ensureView(c)))
+    render()
+    // Capture fresh screenshots for all cards on startup
+    cards.forEach(c => waitAndCapture(c))
+  }
+  init()
+</script>
+</body>
+</html>

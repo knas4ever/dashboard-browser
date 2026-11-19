@@ -1,0 +1,29 @@
+{
+  "name": "webpage-notes-dashboard",
+  "version": "2.8.0",
+  "description": "A dashboard to browse webpages with notes",
+  "main": "main.js",
+  "author": "Dashboard",
+  "scripts": {
+    "start": "electron .",
+    "dist": "npm run build && npm run fix-exe",
+    "build": "npx electron-builder --dir",
+    "fix-exe": "node scripts/fix-exe.js"
+  },
+  "devDependencies": {
+    "7zip-bin": "^5.2.0",
+    "electron": "^41.10.6",
+    "electron-builder": "^26.8.1"
+  },
+  "build": {
+    "appId": "com.dashboard.notes",
+    "productName": "Webpage Notes Dashboard",
+    "publish": null,
+    "win": {
+      "signAndEditExecutable": false,
+      "target": [
+        "dir"
+      ]
+    }
+  }
+}
