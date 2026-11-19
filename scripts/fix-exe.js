@@ -7,7 +7,7 @@ const https = require('https');
 const projectRoot = path.join(__dirname, '..');
 const electronZip = path.join(projectRoot, 'electron.zip');
 const unpackedDir = path.join(projectRoot, 'dist', 'win-unpacked');
-const targetExe = path.join(unpackedDir, 'Webpage Notes Dashboard.exe');
+const targetExe = path.join(unpackedDir, 'Dashboard-browser.exe');
 
 // Read Electron version dynamically from the installed package — no manual updates needed
 const ELECTRON_VERSION = JSON.parse(

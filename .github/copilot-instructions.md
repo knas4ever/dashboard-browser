@@ -1,4 +1,4 @@
-# Webpage Notes Dashboard - Copilot Instructions
+# Dashboard-browser - Copilot Instructions
 
 ## Project context
 
@@ -39,7 +39,7 @@ When releasing a version:
 - Keep `build.win.signAndEditExecutable` set to `false` so Electron Builder preserves the original Electron executable.
 - If `scripts/fix-exe.js` changes, run `npm run fix-exe` and confirm:
   ```powershell
-  (Get-Item "dist\win-unpacked\Webpage Notes Dashboard.exe").VersionInfo.ProductName
+  (Get-Item "dist\win-unpacked\Dashboard-browser.exe").VersionInfo.ProductName
   ```
   The result must be `Electron`.
 
@@ -56,7 +56,7 @@ When releasing a version:
 
 After `npm run dist`, ensure `dist\win-unpacked\` includes:
 
-- `Webpage Notes Dashboard.exe`
+- `Dashboard-browser.exe`
 - `resources\app.asar`
 - an executable whose ProductName is `Electron`
 

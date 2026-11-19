@@ -2,6 +2,9 @@ const { app, BrowserWindow, WebContentsView, ipcMain, session } = require('elect
 const path = require('path')
 const fs = require('fs')
 
+// Keep the pre-rename data folder so existing notes and sessions are preserved
+app.setPath('userData', path.join(app.getPath('appData'), 'webpage-notes-dashboard'))
+
 let mainWin = null
 
 // ── WebContentsView management ────────────────────────────────────────────────

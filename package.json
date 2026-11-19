@@ -1,6 +1,6 @@
 {
-  "name": "webpage-notes-dashboard",
-  "version": "2.9.1",
+  "name": "dashboard-browser",
+  "version": "2.9.2",
   "description": "A dashboard to browse webpages with notes",
   "main": "main.js",
   "author": "Dashboard",
@@ -17,7 +17,7 @@
   },
   "build": {
     "appId": "com.dashboard.notes",
-    "productName": "Webpage Notes Dashboard",
+    "productName": "Dashboard-browser",
     "publish": null,
     "win": {
       "signAndEditExecutable": false,

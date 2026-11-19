@@ -1,11 +1,12 @@
-# Webpage Notes Dashboard
+# Dashboard-browser
 
-**Version 2.9.1** | A desktop app to browse webpages with notes, built with Electron.
+**Version 2.9.2** | A desktop app to browse webpages with notes, built with Electron.
 
 ## Changelog
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 2.9.2 | 2026-11-19 | **Change:** Renamed the application to Dashboard-browser (executable: `Dashboard-browser.exe`). User data stays in the previous `webpage-notes-dashboard` folder so existing notes are preserved. |
 | 2.9.1 | 2026-11-19 | **Security:** Updated Electron from 43.8.4 to 44.11.5, which bundles Node.js 24.22.3. |
 | 2.9.0 | 2026-10-28 | **Security:** Updated Electron from 41.10.6 to 43.8.4, which bundles Node.js 24.22.1 and fixes the October 2026 Node.js security release issues (CVE-2026-105481, -105482, -105483, -106069, -106072, -106073, -106074, -111497). |
 | 2.8.0 | 2026-08-20 | **Feature:** Added an in-app version history accessible from the dashboard toolbar. |
@@ -53,7 +54,7 @@ npm run dist
 
 ### Build Output
 - **Location:** `dist/win-unpacked/`
-- **Executable:** `dist/win-unpacked/Webpage Notes Dashboard.exe`
+- **Executable:** `dist/win-unpacked/Dashboard-browser.exe`
 - **Distribution:** Copy the entire `win-unpacked` folder to target PCs
 
 ### Build Scripts
