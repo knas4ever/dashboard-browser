@@ -1,0 +1,29 @@
+{
+  "name": "dashboard-browser",
+  "version": "2.9.2",
+  "description": "A dashboard to browse webpages with notes",
+  "main": "main.js",
+  "author": "Dashboard",
+  "scripts": {
+    "start": "electron .",
+    "dist": "npm run build && npm run fix-exe",
+    "build": "npx electron-builder --dir",
+    "fix-exe": "node scripts/fix-exe.js"
+  },
+  "devDependencies": {
+    "7zip-bin": "^5.2.0",
+    "electron": "^44.11.5",
+    "electron-builder": "^26.8.1"
+  },
+  "build": {
+    "appId": "com.dashboard.notes",
+    "productName": "Dashboard-browser",
+    "publish": null,
+    "win": {
+      "signAndEditExecutable": false,
+      "target": [
+        "dir"
+      ]
+    }
+  }
+}

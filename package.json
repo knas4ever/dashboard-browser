@@ -1,6 +1,6 @@
 {
   "name": "dashboard-browser",
-  "version": "2.9.2",
+  "version": "2.9.3",
   "description": "A dashboard to browse webpages with notes",
   "main": "main.js",
   "author": "Dashboard",

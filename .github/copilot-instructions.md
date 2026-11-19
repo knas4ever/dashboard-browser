@@ -21,7 +21,8 @@ When releasing a version:
 1. Increment patch versions for fixes; increment minor versions for features or security changes.
 2. Update the `package.json` version.
 3. Add the version, date, and change summary to the `README.md` changelog.
-4. Update these instructions when project guidance changes.
+4. Add the same version, date, and a short summary at the top of the `versionHistory` array in `index.html` (shown by the in-app "Version history" button).
+5. Update these instructions when project guidance changes.
 
 ## Architecture constraints
 
